@@ -22,44 +22,26 @@ class Cell
 public:
 	inline Cell() : x(-1), y(-1), type('*') {};
 	inline Cell(int x, int y, char type) : x(x), y(y), type(type) {};
-	inline int index() { return x + (y * Map::width); }
+	inline Cell(int x, int y, char type, int value) : x(x), y(y), type(type), pellet(value) {};
+	int index(); //  { return x + (y * Map::width); }
+	void setPellet(int newPellet) { pellet = newPellet; };
 	inline operator std::string() const { return x + " " + y; };
-	inline bool canMove(char dir, int length)
-	{
-		auto curr = this;
-		for (size_t i = 0; i < length; i++)
-		{
-			if (curr->neighbors.find(dir) != curr->neighbors.end())
-			{
-				return false;
-			}
-			curr = curr->neighbors[dir];
-		}
-		return true;
-	};
-	inline Cell* move(char dir, int length)
-	{
-		auto curr = this;
-		for (size_t i = 0; i < length; i++)
-		{
-			curr = curr->neighbors[dir];
-		}
-		return curr;
-	};
 
 public:
 	int x;
 	int y;
 	char type;
+	int pellet = 0;
 	std::unordered_map<char, Cell*> neighbors;
 };
+
 
 class Direction
 {
 public:
 	Direction(int x, int y, char d) : dx(x), dy(y), dir(d) {};
-	int dx,
-		dy;
+	int dx;
+	int dy;
 	char dir;
 };
 
@@ -70,6 +52,12 @@ public:
 	static Cell GetCellByIndex(int index) { return Board[index]; };
 	static Cell& GetCellRef(int x, int y) { return Board[x + (y * width)]; };
 	static void AddCell(Cell cell) { Board.push_back(cell); };
+
+	static void UpdateCell(int x, int y, int value) 
+	{ 
+		GetCellRef(x, y).pellet = value;
+	};
+
 	static bool IsValid(int x, int y) { return (x >= 0 && y >= 0 && x < width && y < height); };
 	static void Initilize()
 	{
@@ -82,20 +70,21 @@ public:
 private:
 	static void SetupCell(Cell& cell)
 	{
-		Direction neighbors[4] = { Direction(0,-1,'N'), Direction(0,1,'S'), 
+		Direction neighbors[4] = { Direction(0,-1,'N'), Direction(0,1,'S'),
 			Direction(-1,0,'W'), Direction(1,0,'E') };
 		for (size_t i = 0; i < 4; i++)
 		{
 			int x = cell.x + neighbors[i].dx;
 			int y = cell.y + neighbors[i].dy;
 			if (IsValid(x, y))
-				if (GetCell(x, y).type == '.')
+				if (GetCell(x, y).type == ' ')
 				{
 					cell.neighbors[neighbors[i].dir] = &GetCellRef(x, y);
 				}
 
 		}
 	}
+
 public:
 	static std::vector<Cell> Board;
 	static int width;
@@ -104,9 +93,48 @@ public:
 
 
 /*-- #include "Game.h" start --*/
+#include <string>
+#include <map>
+
+class PacMan
+{
+public:
+	PacMan() {};
+	PacMan(int pacId, int x, int y) :
+		pacId(pacId), x(x), y(y),
+		cell(Map::GetCell(x, y))
+	{};
+
+	int pacId{ -1 };
+	int x{ -1 };
+	int y{ -1 };
+	Cell cell;
+
+	// unused in wood leagues
+	std::string typeId{ "" };
+	int speedTurnsLeft{ -1 };
+	int abilityCooldown{ -1 };
+
+};
+
+class Player
+{
+public:
+	inline Player(int score, int opponentScore) : score(score), opponentScore(opponentScore) {};
+public:
+	int score = 0;
+	int opponentScore = 0;
+	std::map<int, PacMan> pacs;
+};
+
 class Game
 {
+public:
+	inline Game() : players{ Player(0, 0), Player(0, 0) } {};
+public:
+	Player players[2];
 };
+
 
 
 /*-- #include "ReadInput.h" start --*/
@@ -127,56 +155,148 @@ public:
 
 		std::cin >> width >> height; std::cin.ignore();
 
-        Map::width = width;
-        Map::height = height;
+		Map::width = width;
+		Map::height = height;
 
 		for (int y = 0; y < height; y++) {
 			string row;
-            std::getline(std::cin, row); // one line of the grid: space " " is floor, pound "#" is wall
-            for (int x = 0; x < row.size(); x++)
-            {
-                Map::AddCell(Cell(x, y, row[x]));
-            }
+			std::getline(std::cin, row); // one line of the grid: space " " is floor, pound "#" is wall
+			for (int x = 0; x < row.size(); x++)
+			{
+				Map::AddCell(Cell(x, y, row[x]));
+			}
 		}
 	}
 
 	inline static Game ReadRound(Game lastGame)
 	{
-        int myScore;
-        int opponentScore;
-        cin >> myScore >> opponentScore; cin.ignore();
-        int visiblePacCount; // all your pacs and enemy pacs in sight
-        cin >> visiblePacCount; cin.ignore();
-        for (int i = 0; i < visiblePacCount; i++) {
-            int pacId; // pac number (unique within a team)
-            bool mine; // true if this pac is yours
-            int x; // position in the grid
-            int y; // position in the grid
-            string typeId; // unused in wood leagues
-            int speedTurnsLeft; // unused in wood leagues
-            int abilityCooldown; // unused in wood leagues
-            cin >> pacId >> mine >> x >> y >> typeId >> speedTurnsLeft >> abilityCooldown; cin.ignore();
-        }
-        int visiblePelletCount; // all pellets in sight
-        cin >> visiblePelletCount; cin.ignore();
-        for (int i = 0; i < visiblePelletCount; i++) {
-            int x;
-            int y;
-            int value; // amount of points this pellet is worth
-            cin >> x >> y >> value; cin.ignore();
-        }
-	}
+		Game game;
+		int myScore;
+		int opponentScore;
+		cin >> myScore >> opponentScore; cin.ignore();
+		int visiblePacCount; // all your pacs and enemy pacs in sight
+		cin >> visiblePacCount; cin.ignore();
+		for (int i = 0; i < visiblePacCount; i++) {
+			int pacId; // pac number (unique within a team)
+			bool mine; // true if this pac is yours
+			int x; // position in the grid
+			int y; // position in the grid
+			string typeId; // unused in wood leagues
+			int speedTurnsLeft; // unused in wood leagues
+			int abilityCooldown; // unused in wood leagues
+			cin >> pacId >> mine >> x >> y >> typeId >> speedTurnsLeft >> abilityCooldown; cin.ignore();
 
-	inline static std::string ReadLine()
-	{
+			Map::UpdateCell(x, y, 0);
 
+			PacMan currentPac = PacMan(pacId, x, y);
+			if (mine)
+			{
+				game.players[0].pacs[pacId] = currentPac;
+			}
+			else
+			{
+				game.players[1].pacs[pacId] = currentPac;
+			}
+		}
+
+		int visiblePelletCount; // all pellets in sight
+		cin >> visiblePelletCount; cin.ignore();
+		for (int i = 0; i < visiblePelletCount; i++) {
+			int x;
+			int y;
+			int value; // amount of points this pellet is worth
+			cin >> x >> y >> value; cin.ignore();
+
+			Map::UpdateCell(x, y, value);
+		}
+
+		return game;
 	}
 };
 
 
-/*-- #include "Agent.h" start --*/
-class Agent
+/*-- #include "ReactAgent.h" start --*/
+/*-- #include "Game.h" start --*/
+/*-- #include "Map.h" start --*/
+#include <random>
+/*-- #include "BreadthFirstSearchService.h" start --*/
+#include <queue>
+#include <unordered_set>
+/*-- #include "Map.h" start --*/
+
+class BreadthFirstSearchService
 {
+public:
+	static int FindNextPellet(Cell currentCell, int goal)
+	{
+		std::queue<int> q; // Nodes to explore
+		std::unordered_set<int> visited;
+
+		Cell curr = currentCell;
+		q.push(curr.index());
+		visited.insert(curr.index());
+
+		while (!q.empty())
+		{
+			curr = Map::GetCellByIndex(q.front());
+			q.pop();
+
+			for (auto neigh : curr.neighbors)
+			{
+				Cell toFind = *neigh.second;
+
+				if (visited.find(neigh.second->index()) != visited.end())
+					continue;
+
+				if (toFind.pellet == goal)
+					return toFind.index();
+
+				visited.insert(neigh.second->index());
+				q.push(neigh.second->index());
+			}
+		}
+
+		return -1;
+	}
+};
+
+
+class ReactAgent
+{
+public:
+	ReactAgent(Game& game): game(game), p1(game.players[0]), p2(game.players[1]) {};
+
+	std::string think() {
+		string returnStr = "";
+		for (auto curr : p1.pacs)
+		{
+			PacMan currPac = curr.second;
+			cerr << "Current pos: " << currPac.cell.pellet << endl;
+			
+			int cellIndex = BreadthFirstSearchService::FindNextPellet(currPac.cell, 10);
+			if (cellIndex == -1)
+			{
+				cellIndex = BreadthFirstSearchService::FindNextPellet(currPac.cell, 1);
+			}
+
+			Cell cell = Map::GetCellByIndex(cellIndex);
+			cerr << cell.x << ", " << cell.y << ": " << cell.pellet << endl;
+			
+			returnStr += MOVE + " " 
+				+ to_string(currPac.pacId) + " "
+				+ to_string(cell.x) + " " 
+				+ to_string(cell.y) + " | "; // MOVE <pacId> <x> <y>
+		}
+		
+		return returnStr; 
+	}
+
+private:
+	Game& game;
+	Player& p1;
+	Player& p2;
+
+	const std::string MOVE = "MOVE";
 };
 
 
@@ -188,17 +308,23 @@ int main()
 {
     ReadInput::Initilize();
     Map::Initilize();
+    Game lastGame;
 
     while (1) {
-       
+        Game game = ReadInput::ReadRound(lastGame);
 
+        ReactAgent agent(game);
+        std::string result = agent.think();
 
+        std::cout << result << endl;
 
-        cout << "MOVE 0 15 10" << endl; // MOVE <pacId> <x> <y>
+        lastGame = game;
     }
 }
 /*-- File: main.cpp end --*/
-/*-- #include "Agent.h" start --*/
+/*-- #include "BreadthFirstSearchService.h" start --*/
+/*-- #include "Cell.h" start --*/
+
 /*-- #include "Game.h" start --*/
 /*-- File: Map.cpp start --*/
 #include <vector>
@@ -207,6 +333,13 @@ int main()
 std::vector<Cell> Map::Board;
 int Map::width;
 int Map::height;
+
+int Cell::index()
+{
+    return x + (y * Map::width);
+}
+
 /*-- File: Map.cpp end --*/
 /*-- #include "Map.h" start --*/
+/*-- #include "ReactAgent.h" start --*/
 /*-- #include "ReadInput.h" start --*/

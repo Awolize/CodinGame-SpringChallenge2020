@@ -6,7 +6,7 @@
 #include "Map.h"
 #include "Game.h"
 #include "ReadInput.h"
-#include "Agent.h"
+#include "ReactAgent.h"
 
 using namespace std;
 
@@ -15,12 +15,16 @@ int main()
 {
     ReadInput::Initilize();
     Map::Initilize();
+    Game lastGame;
 
     while (1) {
-       
+        Game game = ReadInput::ReadRound(lastGame);
 
+        ReactAgent agent(game);
+        std::string result = agent.think();
 
+        std::cout << result << endl;
 
-        cout << "MOVE 0 15 10" << endl; // MOVE <pacId> <x> <y>
+        lastGame = game;
     }
 }

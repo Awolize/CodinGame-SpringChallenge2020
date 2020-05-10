@@ -32,7 +32,10 @@
     <ClInclude Include="Map.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Agent.h">
+    <ClInclude Include="ReactAgent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BreadthFirstSearchService.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
